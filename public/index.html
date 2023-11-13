@@ -88,6 +88,8 @@
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/uuid/8.3.2/uuid.min.js"></script>
     <script>
         const socket = io();
 
@@ -164,11 +166,7 @@
         socket.on('disconnect', () => {
             localStorage.removeItem('mySocketId');
         });
-    </script>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/uuid/8.3.2/uuid.min.js"></script>
-    <script>
         // Event listener for chat form submission
         const chatForm = document.getElementById('chatForm');
         const messageInput = document.getElementById('messageInput');
@@ -197,13 +195,13 @@
 
         // Event listener for chat messages from the server
         socket.on('chatMessage', function (message) {
-            displayChatMessage({ socketId: message.userId, message: message.message });
+            displayChatMessage(message);
         });
 
         // Event listener for current user data from the server
         socket.on('currentUsers', function (usersData) {
             usersData.forEach(function (userData) {
-                displayChatMessage({ socketId: userData.userId, message: `User "${userData.userName}" has joined.` });
+                displayChatMessage(`User "${userData.userName}" has joined.`);
             });
         });
 

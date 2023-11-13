@@ -101,7 +101,12 @@
 
         // Function to create and update cursors
         function updateCursor(cursorId, position) {
-
+            // Remove any existing cursors with the same ID
+            Object.keys(cursors).forEach((id) => {
+                if (id === cursorId && id !== mySocketId) {
+                    removeCursor(id);
+                }
+            });
 
             let cursor = document.getElementById(cursorId);
 

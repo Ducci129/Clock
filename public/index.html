@@ -1,0 +1,218 @@
+<!-- public/index.html -->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Timer with Cursor Sharing</title>
+
+    <style>
+        body {
+            background-color: #f4f4f4;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        #content {
+            text-align: center;
+            background-color: #ffffff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            color: #333333;
+        }
+
+        p {
+            color: #555555;
+        }
+
+        span {
+            font-weight: bold;
+            font-size: 20px;
+            color: #007BFF;
+        }
+
+        .cursor {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            background-color: red;
+            border-radius: 50%;
+            pointer-events: none; /* Ensures that the cursor doesn't interfere with mouse events */
+        }
+
+        #chatBox {
+            position: fixed;
+            bottom: 10px;
+            right: 10px;
+            max-width: 300px;
+            max-height: 200px;
+            overflow-y: auto;
+            background-color: #ffffff;
+            padding: 10px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+
+        #chatMessages {
+            margin-bottom: 10px;
+        }
+
+        #chatForm {
+            display: flex;
+        }
+
+        #messageInput {
+            flex: 1;
+        }
+    </style>
+</head>
+<body>
+    <div id="content">
+        <h1>Timer with Cursor Sharing</h1>
+        <p>Timer Value: <span id="timerValue">Loading...</span></p>
+    </div>
+
+    <div id="chatBox">
+        <div id="chatMessages"></div>
+        <form id="chatForm">
+            <input type="text" id="messageInput" placeholder="Type a message..." autocomplete="off">
+        </form>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+
+        const cursors = {};
+        let mySocketId = localStorage.getItem('mySocketId');
+
+        // Function to fetch and update the timer value
+        function updateTimerValue(value) {
+            document.getElementById('timerValue').innerText = value;
+        }
+
+        // Function to create and update cursors
+        function updateCursor(cursorId, position) {
+            // Remove any existing cursors with the same ID
+            Object.keys(cursors).forEach((id) => {
+                if (id === cursorId && id !== mySocketId) {
+                    removeCursor(id);
+                }
+            });
+
+            let cursor = document.getElementById(cursorId);
+
+            if (!cursor) {
+                cursor = document.createElement('div');
+                cursor.className = 'cursor';
+                cursor.id = cursorId;
+                document.body.appendChild(cursor);
+            }
+
+            cursor.style.left = `${position.x}px`;
+            cursor.style.top = `${position.y}px`;
+        }
+
+        // Function to remove cursors of disconnected users
+        function removeCursor(cursorId) {
+            const cursor = document.getElementById(cursorId);
+            if (cursor) {
+                cursor.remove();
+                delete cursors[cursorId];
+            }
+        }
+
+        // Fetch and display the timer value when the page loads
+        socket.on('timerUpdate', updateTimerValue);
+
+        // Listen for cursor position updates from other clients
+        socket.on('cursorPosition', (data) => {
+            if (data.socketId !== mySocketId) {
+                updateCursor(data.socketId, data.position);
+            }
+        });
+
+        // Listen for disconnection events
+        socket.on('cursorDisconnect', (disconnectedId) => {
+            removeCursor(disconnectedId);
+        });
+
+        // Function to send cursor position to the server
+        function sendCursorPosition(event) {
+            const position = { x: event.clientX, y: event.clientY };
+            socket.emit('cursorPosition', position);
+        }
+
+        // Add event listener for mouse move
+        document.addEventListener('mousemove', sendCursorPosition);
+
+        // Set up a listener for the connect event to store the socket.id in local storage
+        socket.on('connect', () => {
+            mySocketId = socket.id;
+            localStorage.setItem('mySocketId', mySocketId);
+        });
+
+        // Set up a listener for the disconnect event to remove the stored socket.id
+        socket.on('disconnect', () => {
+            localStorage.removeItem('mySocketId');
+        });
+    </script>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/uuid/8.3.2/uuid.min.js"></script>
+    <script>
+        // Event listener for chat form submission
+        const chatForm = document.getElementById('chatForm');
+        const messageInput = document.getElementById('messageInput');
+        const typingMessage = document.getElementById('typingMessage');
+
+        chatForm.addEventListener('submit', function (event) {
+            event.preventDefault();
+            const message = messageInput.value.trim();
+            if (message !== '') {
+                socket.emit('chatMessage', message);
+                messageInput.value = '';
+                typingMessage.innerText = ''; // Clear typing message
+            }
+        });
+
+        // Enable sending messages with the Enter key
+        messageInput.addEventListener('keypress', function (event) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                chatForm.dispatchEvent(new Event('submit'));
+            } else {
+                // Display typing message
+                typingMessage.innerText = 'Typing...';
+            }
+        });
+
+        // Event listener for chat messages from the server
+        socket.on('chatMessage', function (message) {
+            displayChatMessage({ socketId: message.userId, message: message.message });
+        });
+
+        // Event listener for current user data from the server
+        socket.on('currentUsers', function (usersData) {
+            usersData.forEach(function (userData) {
+                displayChatMessage({ socketId: userData.userId, message: `User "${userData.userName}" has joined.` });
+            });
+        });
+
+        // Event listener for current cursors from the server
+        socket.on('currentCursors', function (cursorsData) {
+            cursorsData.forEach(function (cursorData) {
+                updateCursor(cursorData.userId, cursorData.position);
+            });
+        });
+    </script>
+</body>
+</html>

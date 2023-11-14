@@ -1,5 +1,3 @@
-<!-- public/index.html -->
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -7,94 +5,29 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Timer with Cursor Sharing</title>
 
-    <style>
-        body {
-            background-color: #f4f4f4;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            height: 100vh;
-            margin: 0;
-        }
+    <!-- Link to external CSS file -->
+    <link rel="stylesheet" type="text/css" href="styles.css">
 
-        #content {
-            text-align: center;
-            background-color: #ffffff;
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-        }
-
-        h1 {
-            color: #333333;
-        }
-
-        p {
-            color: #555555;
-        }
-
-        span {
-            font-weight: bold;
-            font-size: 20px;
-            color: #007BFF;
-        }
-
-        .cursor {
-            position: absolute;
-            width: 20px;
-            height: 20px;
-            background-color: red;
-            border-radius: 50%;
-            pointer-events: none; /* Ensures that the cursor doesn't interfere with mouse events */
-        }
-
-        #chatBox {
-            position: fixed;
-            bottom: 10px;
-            right: 10px;
-            max-width: 300px;
-            max-height: 200px;
-            overflow-y: auto;
-            background-color: #ffffff;
-            padding: 10px;
-            border-radius: 10px;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-        }
-
-        #chatMessages {
-            margin-bottom: 10px;
-        }
-
-        #chatForm {
-            display: flex;
-        }
-
-        #messageInput {
-            flex: 1;
-        }
-    </style>
+    <!-- Add lodash script for debouncing -->
+    <script src="https://cdn.jsdelivr.net/npm/lodash@4.17.21/lodash.min.js"></script>
 </head>
 <body>
+    <!-- Fixed element for client ID -->
+    <div id="clientID" style="display: none;">Your ID: <span id="ownSocketId">Not connected</span></div>
+
     <div id="content">
         <h1>Timer with Cursor Sharing</h1>
         <p>Timer Value: <span id="timerValue">Loading...</span></p>
     </div>
 
-    <div id="chatBox">
-        <div id="chatMessages"></div>
-        <form id="chatForm">
-            <input type="text" id="messageInput" placeholder="Type a message..." autocomplete="off">
-        </form>
-    </div>
-
+    <!-- Add socket.io script -->
     <script src="/socket.io/socket.io.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/uuid/8.3.2/uuid.min.js"></script>
     <script>
         const socket = io();
 
         const cursors = {};
         let mySocketId = localStorage.getItem('mySocketId');
+        let displayClientId = false;
 
         // Function to fetch and update the timer value
         function updateTimerValue(value) {
@@ -104,23 +37,19 @@
         // Function to create and update cursors
         function updateCursor(cursorId, position) {
             // Remove any existing cursors with the same ID
-            Object.keys(cursors).forEach((id) => {
-                if (id === cursorId && id !== mySocketId) {
-                    removeCursor(id);
-                }
-            });
+            removeCursor(cursorId);
 
-            let cursor = document.getElementById(cursorId);
-
-            if (!cursor) {
-                cursor = document.createElement('div');
-                cursor.className = 'cursor';
-                cursor.id = cursorId;
-                document.body.appendChild(cursor);
-            }
+            let cursor = document.createElement('div');
+            cursor.className = 'cursor';
+            cursor.id = cursorId;
+            document.body.appendChild(cursor);
 
             cursor.style.left = `${position.x}px`;
             cursor.style.top = `${position.y}px`;
+
+            if (displayClientId) {
+                cursor.innerHTML = `<span class="cursor-id">${cursorId}</span>`;
+            }
         }
 
         // Function to remove cursors of disconnected users
@@ -160,57 +89,43 @@
         socket.on('connect', () => {
             mySocketId = socket.id;
             localStorage.setItem('mySocketId', mySocketId);
+            updateOwnSocketId();
         });
 
         // Set up a listener for the disconnect event to remove the stored socket.id
         socket.on('disconnect', () => {
             localStorage.removeItem('mySocketId');
+            updateOwnSocketId();
         });
 
-        // Event listener for chat form submission
-        const chatForm = document.getElementById('chatForm');
-        const messageInput = document.getElementById('messageInput');
-        const typingMessage = document.getElementById('typingMessage');
+        // Function to update the display of the own socket ID
+        function updateOwnSocketId() {
+            const ownSocketIdElement = document.getElementById('ownSocketId');
+            if (ownSocketIdElement) {
+                ownSocketIdElement.innerText = mySocketId || 'Not connected';
+            }
+        }
 
-        chatForm.addEventListener('submit', function (event) {
-            event.preventDefault();
-            const message = messageInput.value.trim();
-            if (message !== '') {
-                socket.emit('chatMessage', message);
-                messageInput.value = '';
-                typingMessage.innerText = ''; // Clear typing message
+        // Function to update visibility of client ID
+        function updateClientIdVisibility() {
+            const clientIdElement = document.getElementById('clientID');
+            if (clientIdElement) {
+                clientIdElement.style.display = displayClientId ? 'block' : 'none';
+            }
+        }
+
+        // Add listener for the "0" key press to toggle display of client ID
+        document.addEventListener('keydown', (event) => {
+            if (event.key === '0') {
+                displayClientId = !displayClientId;
+                updateClientIdVisibility();
             }
         });
 
-        // Enable sending messages with the Enter key
-        messageInput.addEventListener('keypress', function (event) {
-            if (event.key === 'Enter') {
-                event.preventDefault();
-                chatForm.dispatchEvent(new Event('submit'));
-            } else {
-                // Display typing message
-                typingMessage.innerText = 'Typing...';
-            }
-        });
-
-        // Event listener for chat messages from the server
-        socket.on('chatMessage', function (message) {
-            displayChatMessage(message);
-        });
-
-        // Event listener for current user data from the server
-        socket.on('currentUsers', function (usersData) {
-            usersData.forEach(function (userData) {
-                displayChatMessage(`User "${userData.userName}" has joined.`);
-            });
-        });
-
-        // Event listener for current cursors from the server
-        socket.on('currentCursors', function (cursorsData) {
-            cursorsData.forEach(function (cursorData) {
-                updateCursor(cursorData.userId, cursorData.position);
-            });
-        });
+        // Initialize the own socket ID display
+        updateOwnSocketId();
+        // Initialize the client ID visibility
+        updateClientIdVisibility();
     </script>
 </body>
 </html>

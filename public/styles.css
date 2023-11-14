@@ -1,0 +1,55 @@
+body {
+    background-color: #f4f4f4;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    margin: 0;
+    position: relative;
+}
+
+#content {
+    text-align: center;
+    background-color: #ffffff;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+
+h1 {
+    color: #333333;
+}
+
+p {
+    color: #555555;
+}
+
+span {
+    font-weight: bold;
+    font-size: 20px;
+    color: #007BFF;
+}
+
+.cursor {
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    background-color: red;
+    border-radius: 50%;
+    pointer-events: none; /* Ensures that the cursor doesn't interfere with mouse events */
+}
+
+#clientID {
+    position: fixed;
+    top: 10px;
+    left: 10px;
+    padding: 10px;
+    color: #000000;
+    font-size: 14px;
+    z-index: 100;
+}
+
+.cursor-id {
+    color: black; /* Set the desired color for the cursor IDs */
+    white-space: nowrap; /* Prevent long cursor IDs from breaking into two lines */
+}
